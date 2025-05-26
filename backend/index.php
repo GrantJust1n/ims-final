@@ -2,7 +2,11 @@
 
 include_once './header.php';
 include_once './config/dbconn.php';
+
+
+
 header('Content-Type: application/json');
+
 
 $connect = conn();  // Get the DB connection from dbconn.php
 
@@ -45,6 +49,18 @@ switch ($action) {
     case 'reduce_stock':
     reduceStock();
     break;
+    case 'total_products':
+    getTotalProducts();
+    break;
+    case 'total_stock':
+    getTotalStock();
+    break;
+    case 'low_stock_count':
+    getLowStockCount();
+    break;
+    case 'fetch_products_grouped_by_category':
+    fetchProductsGroupedByCategory();
+    break;
 
         default:
         http_response_code(400);
@@ -53,10 +69,8 @@ switch ($action) {
 }
 
 // --- Function definitions ---
-
 function fetchProducts() {
-$connect = conn();
-
+    $connect = conn();
     $stmt = $connect->prepare("SELECT * FROM products");
     $stmt->execute();
     $result = $stmt->get_result();
@@ -243,12 +257,18 @@ function fetchLowStockProducts() {
     exit;
 }
 
-
 function scanBarcode() {
     $connect = conn();
 
-    $code = isset($_GET['barcode']) ? $_GET['barcode'] : '';
+    // Get the barcode from the GET request
+    $code = isset($_GET['barcode']) ? trim($_GET['barcode']) : '';
 
+    if (empty($code)) {
+        echo json_encode(['type' => 'error', 'message' => 'Barcode is required']);
+        exit;
+    }
+
+    // Query the product by barcode
     $stmt = $connect->prepare("SELECT * FROM products WHERE barcode = ?");
     $stmt->bind_param("s", $code);
     $stmt->execute();
@@ -257,12 +277,27 @@ function scanBarcode() {
     $product = $result->fetch_assoc();
 
     if ($product) {
-        echo json_encode(['type' => 'success', 'data' => $product]);
+        // Attach full image URL
+        $imagePath = $product['image_path'] ?? '';
+        $product['image_url'] = file_exists(__DIR__ . '/uploads/' . $imagePath)
+            ? 'uploads/' . $imagePath
+            : 'uploads/default.png';
+
+        echo json_encode([
+            'type' => 'success',
+            'message' => 'Product found',
+            'data' => $product
+        ]);
     } else {
-        echo json_encode(['type' => 'error', 'message' => 'Product not found']);
+        echo json_encode([
+            'type' => 'error',
+            'message' => 'Product not found'
+        ]);
     }
+
     exit;
 }
+
 
 function fetchSuppliers() {
     $connect = conn();
@@ -447,6 +482,82 @@ function reduceStock() {
     } else {
         echo json_encode(['type' => 'error', 'message' => 'Failed to update stock']);
     }
+    exit;
+}
+function getTotalProducts() {
+    $connect = conn();
+    $result = $connect->query("SELECT COUNT(*) AS total FROM products");
+    $row = $result->fetch_assoc();
+
+    echo json_encode([
+        'type' => 'success',
+        'total_products' => intval($row['total'])
+    ]);
+    exit;
+}
+
+function getTotalStock() {
+    $connect = conn();
+    $result = $connect->query("SELECT SUM(stock_quantity) AS total_stock FROM products");
+    $row = $result->fetch_assoc();
+
+    echo json_encode([
+        'type' => 'success',
+        'total_stock' => intval($row['total_stock'])
+    ]);
+    exit;
+}
+
+function getLowStockCount() {
+    $connect = conn();
+
+    // Using same threshold as your fetchLowStockProducts function (10)
+    $threshold = 10;
+
+    $stmt = $connect->prepare("SELECT COUNT(*) AS low_stock FROM products WHERE stock_quantity < ?");
+    $stmt->bind_param("i", $threshold);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+
+    echo json_encode([
+        'type' => 'success',
+        'low_stock_count' => intval($row['low_stock'])
+    ]);
+    exit;
+}
+function fetchProductsGroupedByCategory() {
+    $connect = conn();
+
+    // Fetch all categories
+    $stmt = $connect->prepare("SELECT id, name FROM categories");
+    $stmt->execute();
+    $categoriesResult = $stmt->get_result();
+
+    $categories = [];
+    while ($category = $categoriesResult->fetch_assoc()) {
+        $categoryId = $category['id'];
+
+        // Fetch products for each category
+        $stmt2 = $connect->prepare("SELECT pid, pname, image_path FROM products WHERE pcategory = ?");
+        $stmt2->bind_param("i", $categoryId);
+        $stmt2->execute();
+        $productsResult = $stmt2->get_result();
+
+        $products = [];
+        while ($product = $productsResult->fetch_assoc()) {
+            $product['image_url'] = !empty($product['image_path']) && file_exists(__DIR__ . '/uploads/' . $product['image_path'])
+                ? 'uploads/' . $product['image_path']
+                : 'uploads/default.png';
+            $products[] = $product;
+        }
+
+        $category['products'] = $products;
+        $categories[] = $category;
+    }
+
+    header('Content-Type: application/json');
+    echo json_encode($categories);
     exit;
 }
 

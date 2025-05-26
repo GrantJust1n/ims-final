@@ -7,11 +7,16 @@ function CategoryProducts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch categories on load
+  // Fetch categories and load the first one by default
   useEffect(() => {
     fetch('http://localhost/ims/backend/index.php?action=fetch_categories')
       .then((res) => res.json())
-      .then((data) => setCategories(data))
+      .then((data) => {
+        setCategories(data);
+        if (data.length > 0) {
+          fetchProductsByCategory(data[0].id); // Auto-load first category
+        }
+      })
       .catch((err) => {
         console.error('Category fetch error:', err);
         setError('Failed to load categories.');
@@ -24,7 +29,9 @@ function CategoryProducts() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost/ims/backend/index.php?action=fetch_products_by_category&category_id=${categoryId}`);
+      const res = await fetch(
+        `http://localhost/ims/backend/index.php?action=fetch_products_by_category&category_id=${categoryId}`
+      );
       if (!res.ok) throw new Error('Failed to fetch products');
       const data = await res.json();
       setProducts(data);
@@ -38,54 +45,58 @@ function CategoryProducts() {
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6">Select a Category</h2>
-
-      <div className="flex flex-wrap gap-4 mb-8">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => fetchProductsByCategory(category.id)}
-            className={`px-4 py-2 rounded-lg border transition ${
-              selectedCategoryId === category.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-800 hover:bg-blue-100'
-            }`}
-          >
-            {category.name}
-          </button>
-        ))}
-      </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Show pills only after loading first category */}
+      {selectedCategoryId && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-3 text-gray-700">Categories</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => fetchProductsByCategory(category.id)}
+                className={`whitespace-nowrap px-5 py-2 rounded-full border text-sm transition font-medium ${
+                  selectedCategoryId === category.id
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-gray-100 text-gray-800 hover:bg-blue-100'
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedCategoryId && (
         <>
-          <h3 className="text-xl font-semibold mb-6">Products</h3>
+          <h3 className="text-2xl font-semibold text-gray-800 mb-4">Products</h3>
 
-          {loading && <p className="text-gray-500 mb-4">Loading products...</p>}
-          {error && <p className="text-red-500 mb-4">{error}</p>}
+          {loading && <div className="text-gray-500 mb-4">Loading products...</div>}
+          {error && <div className="text-red-500 mb-4">{error}</div>}
 
           {!loading && products.length === 0 && !error && (
-            <p className="text-gray-600">No products found in this category.</p>
+            <div className="text-gray-600">No products found in this category.</div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((product) => (
               <div
                 key={product.pid}
-                className="border rounded-xl p-4 shadow hover:shadow-md transition duration-300 ease-in-out bg-white"
+                className="border rounded-2xl bg-white p-4 shadow-sm hover:shadow-md transition duration-200"
               >
-                <div className="w-full h-60 flex justify-center items-center bg-gray-50 rounded overflow-hidden mb-3">
+                <div className="w-full aspect-square bg-gray-50 flex items-center justify-center rounded-lg overflow-hidden mb-4">
                   <img
                     src={`http://localhost/ims/backend/uploads/${product.image_path}`}
                     alt={product.pname}
                     className="max-h-full max-w-full object-contain"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = "https://via.placeholder.com/150";
+                      e.target.src = 'https://via.placeholder.com/150';
                     }}
                   />
                 </div>
-                <p className="text-center font-medium text-gray-800">{product.pname}</p>
+                <p className="text-center font-semibold text-gray-800">{product.pname}</p>
               </div>
             ))}
           </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FaTachometerAlt, FaBox, FaList, FaWarehouse, FaTruck,
-  FaExclamationTriangle, FaClipboardList, FaCamera, FaUsers, FaCogs
+  FaExclamationTriangle,  FaCamera, FaUsers,
 } from 'react-icons/fa';
 
 const menuItems = [
@@ -12,10 +12,7 @@ const menuItems = [
   { name: 'Warehouses', icon: <FaWarehouse />, path: '/warehouses' },
   { name: 'Suppliers', icon: <FaTruck />, path: '/suppliers' },
   { name: 'Low Stock Alerts', icon: <FaExclamationTriangle />, path: '/low-stock' },
-  { name: 'Reports', icon: <FaClipboardList />, path: '/reports' },
   { name: 'Barcode & QR Scanner', icon: <FaCamera />, path: '/scanner' },
-  { name: 'Users & Roles', icon: <FaUsers />, path: '/users' },
-  { name: 'Settings', icon: <FaCogs />, path: '/settings' },
 ];
 
 const Navbar = () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function LowStockProducts() {
   const [products, setProducts] = useState([]);
@@ -10,9 +10,7 @@ function LowStockProducts() {
     setError(null);
     try {
       const response = await fetch('http://localhost/ims/backend/index.php?action=low_stock');
-      if (!response.ok) {
-        throw new Error('Failed to fetch low stock products');
-      }
+      if (!response.ok) throw new Error('Failed to fetch low stock products');
       const data = await response.json();
       setProducts(data);
     } catch (err) {
@@ -22,16 +20,32 @@ function LowStockProducts() {
     }
   };
 
+  // Request notification permission once
+  useEffect(() => {
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Poll every 2 seconds
+  useEffect(() => {
+    fetchLowStock();
+    const interval = setInterval(fetchLowStock, 2000); // 2000ms = 2 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  // Show notification when products update and permission granted
+  useEffect(() => {
+    if (products.length > 0 && Notification.permission === 'granted') {
+      new Notification('Low Stock Alert', {
+        body: `${products.length} product(s) running low on stock.`,
+      });
+    }
+  }, [products]);
+
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-4">Low Stock Products</h2>
-      <button
-        onClick={fetchLowStock}
-        className="mb-6 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-      >
-        Check Low Stock
-      </button>
-
       {loading && <p className="text-gray-500">Loading...</p>}
       {error && <p className="text-red-500">{error}</p>}
 
@@ -42,15 +56,13 @@ function LowStockProducts() {
               key={product.pid}
               className="border rounded-lg p-4 shadow-sm bg-white"
             >
-              <img  
-                    src={`http://localhost/ims/backend/uploads/${product.image_path}`}
-                    alt={product.pname}
-                    className="w-full h-60 object-contain rounded mb-2"
-                  />
+              <img
+                src={`http://localhost/ims/backend/uploads/${product.image_path}`}
+                alt={product.pname}
+                className="w-full h-60 object-contain rounded mb-2"
+              />
               <h3 className="text-lg font-semibold">{product.pname}</h3>
-              <p className="text-sm text-gray-600">
-                Category: {product.pcategory}
-              </p>
+              <p className="text-sm text-gray-600">Category: {product.pcategory}</p>
               <p className="text-sm text-gray-600">
                 Warehouse: {product.warehouse_name ?? product.warehouse}
               </p>
